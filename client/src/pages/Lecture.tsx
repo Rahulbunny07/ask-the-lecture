@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import Player, { type PlayerHandle } from "../components/Player";
 import TranscriptPane from "../components/TranscriptPane";
+import AskPanel from "../components/AskPanel";
 import { getLecture, type LectureDetail } from "../api";
 import { formatTime } from "../format";
 
@@ -74,12 +75,7 @@ export default function Lecture() {
         </section>
 
         <aside className="panel">
-          <div className="panel-head">
-            <span className="panel-title">Ask</span>
-          </div>
-          <div className="panel-body">
-            <p className="muted">Ask panel goes here.</p>
-          </div>
+          <AskPanel lectureId={lecture.id} currentSec={currentSec} />
         </aside>
       </div>
     </div>

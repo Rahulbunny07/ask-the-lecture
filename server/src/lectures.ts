@@ -110,9 +110,7 @@ lectures.post("/:id/ask", async (req, res) => {
   res.flushHeaders();
 
   const send = (payload: unknown) =>
-    res.write(`data: ${JSON.stringify(payload)}
-
-`);
+    res.write(`data: ${JSON.stringify(payload)}\n\n`);
 
   try {
     for await (const text of askStream({ lecture, segments, question })) {

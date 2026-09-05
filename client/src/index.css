@@ -612,3 +612,108 @@ textarea:focus {
   color: var(--text-3);
   text-align: center;
 }
+
+/* ============================================================
+   Ask panel
+   ============================================================ */
+
+.ask-empty {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding-top: 6px;
+}
+
+.empty-lead {
+  font-size: 13.5px;
+  line-height: 1.65;
+  color: var(--text-3);
+}
+
+.suggestions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.suggestion {
+  padding: 10px 12px;
+  text-align: left;
+  font-size: 13px;
+  font-weight: 450;
+  color: var(--text-2);
+  background: var(--surface-2);
+  border-color: var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.suggestion:hover:not(:disabled) {
+  color: var(--text);
+  background: var(--surface-3);
+  border-color: var(--border-strong);
+}
+
+.suggestion:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.thread {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.msg {
+  font-size: 14px;
+  line-height: 1.68;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.msg-user {
+  align-self: flex-end;
+  max-width: 88%;
+  padding: 9px 13px;
+  color: var(--text);
+  background: var(--surface-3);
+  border: 1px solid var(--border);
+  border-radius: 13px 13px 3px 13px;
+  font-size: 13.5px;
+}
+
+.msg-assistant {
+  color: var(--text-2);
+}
+
+.msg-assistant strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.thinking {
+  color: var(--text-3);
+  font-style: italic;
+}
+
+.composer {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+  padding: 12px;
+  border-top: 1px solid var(--border);
+  background: var(--surface-1);
+}
+
+.composer textarea {
+  flex: 1;
+  min-height: 44px;
+  font-size: 13.5px;
+  resize: none;
+}
+
+.send {
+  height: 44px;
+  padding: 0 18px;
+  flex-shrink: 0;
+}
