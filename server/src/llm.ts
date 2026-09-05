@@ -1,5 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
-import type { Lecture, Segment } from "./types.js";
+import type { Chapter, Lecture, Segment } from "./types.js";
 
 let client: Anthropic | null = null;
 
@@ -84,4 +84,89 @@ export async function* askStream({
       yield event.delta.text;
     }
   }
+}
+
+const CHAPTER_RULES = `You are given a timestamped lecture transcript. Split it into the topics the lecturer actually moves through.
+
+Return ONLY a JSON array, no prose and no code fence, shaped like:
+[{"startSec": 0, "title": "Course logistics"}, {"startSec": 420, "title": "What is computation"}]
+
+Rules:
+- Between 5 and 9 chapters, in order, covering the whole lecture.
+- The first chapter must start at 0.
+- startSec must be an integer taken from a [t=...] marker in the transcript.
+- Titles are 2 to 5 words, in the lecturer's own vocabulary, no numbering.`;
+
+/**
+ * One extra call at ingest time. Failure is non-fatal - a lecture without
+ * chapters is still fully usable, so this never blocks getting in the door.
+ */
+export async function generateChapters(
+  lecture: Lecture,
+  segments: Segment[],
+): Promise<Chapter[]> {
+  if (!hasApiKey() || segments.length === 0) return [];
+
+  try {
+    const message = await getClient().messages.create({
+      model: MODEL,
+      max_tokens: 1200,
+      thinking: { type: "adaptive" },
+      output_config: { effort: "low" },
+      system: [
+        { type: "text", text: CHAPTER_RULES },
+        {
+          type: "text",
+          text: renderTranscript(lecture, segments),
+          cache_control: { type: "ephemeral" },
+        },
+      ],
+      messages: [{ role: "user", content: "Produce the chapter list." }],
+    });
+
+    const text = message.content
+      .filter((block) => block.type === "text")
+      .map((block) => block.text)
+      .join("");
+
+    return parseChapters(text, lecture.durationSec);
+  } catch (err) {
+    console.warn("chapter generation failed:", (err as Error).message);
+    return [];
+  }
+}
+
+/** The model is told to return bare JSON, but tolerate it wrapping the array. */
+export function parseChapters(raw: string, durationSec: number): Chapter[] {
+  const start = raw.indexOf("[");
+  const end = raw.lastIndexOf("]");
+  if (start === -1 || end <= start) return [];
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw.slice(start, end + 1));
+  } catch {
+    return [];
+  }
+  if (!Array.isArray(parsed)) return [];
+
+  const chapters = parsed
+    .map((item) => {
+      const row = item as { startSec?: unknown; title?: unknown };
+      return {
+        startSec: Math.max(0, Math.floor(Number(row.startSec))),
+        title: String(row.title ?? "").trim(),
+      };
+    })
+    .filter(
+      (c) => Number.isFinite(c.startSec) && c.title && c.startSec <= durationSec,
+    )
+    .sort((a, b) => a.startSec - b.startSec);
+
+  // Deduplicate identical starts and make sure the bar begins at zero.
+  const unique = chapters.filter(
+    (c, i) => i === 0 || c.startSec !== chapters[i - 1]!.startSec,
+  );
+  if (unique.length > 0) unique[0]!.startSec = 0;
+  return unique;
 }

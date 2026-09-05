@@ -795,3 +795,102 @@ textarea:focus {
   border-radius: 50%;
   background: var(--warning);
 }
+
+/* ============================================================
+   Chapter timeline
+   YouTube's own scrubber is inside a cross-origin iframe and cannot be
+   drawn on, so the chapter marks live on a bar of our own.
+   ============================================================ */
+
+.timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  flex-shrink: 0;
+}
+
+.timeline-bar {
+  position: relative;
+  display: flex;
+  gap: 2px;
+  height: 8px;
+}
+
+.timeline-span {
+  height: 100%;
+  padding: 0;
+  min-width: 4px;
+  background: var(--surface-3);
+  border: none;
+  border-radius: 3px;
+  transition: background 0.15s var(--ease);
+}
+
+.timeline-span:hover {
+  background: var(--border-strong);
+}
+
+.timeline-span.is-active {
+  background: var(--accent);
+}
+
+.playhead {
+  position: absolute;
+  top: -3px;
+  width: 2px;
+  height: 14px;
+  background: var(--text);
+  border-radius: 1px;
+  box-shadow: 0 0 0 2px var(--bg);
+  pointer-events: none;
+  transition: left 0.4s linear;
+}
+
+.timeline-chips {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+  scrollbar-width: none;
+}
+
+.timeline-chips::-webkit-scrollbar {
+  display: none;
+}
+
+.chapter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  flex-shrink: 0;
+  height: 28px;
+  padding: 0 11px;
+  font-size: 12.5px;
+  font-weight: 450;
+  white-space: nowrap;
+  color: var(--text-2);
+  background: var(--surface-2);
+  border-color: var(--border);
+  border-radius: 999px;
+}
+
+.chapter-chip:hover {
+  color: var(--text);
+  background: var(--surface-3);
+  border-color: var(--border-strong);
+}
+
+.chapter-chip.is-active {
+  color: var(--text);
+  background: var(--accent-soft);
+  border-color: rgba(124, 108, 246, 0.4);
+}
+
+.chapter-time {
+  font-size: 11px;
+  color: var(--text-3);
+}
+
+.chapter-chip.is-active .chapter-time {
+  color: var(--accent-hover);
+}

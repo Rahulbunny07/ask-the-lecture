@@ -25,6 +25,10 @@ const mongoStore: LectureStore = {
       source: doc.source as Lecture["source"],
       durationSec: doc.durationSec ?? 0,
       notesText: doc.notesText ?? "",
+      chapters: (doc.chapters ?? []).map((c) => ({
+        startSec: c.startSec ?? 0,
+        title: c.title ?? "",
+      })),
       createdAt: (doc.createdAt ?? new Date()).toISOString(),
     };
   },
@@ -40,6 +44,10 @@ const mongoStore: LectureStore = {
       source: doc.source as Lecture["source"],
       durationSec: doc.durationSec ?? 0,
       notesText: doc.notesText ?? "",
+      chapters: (doc.chapters ?? []).map((c) => ({
+        startSec: c.startSec ?? 0,
+        title: c.title ?? "",
+      })),
       createdAt: (doc.createdAt ?? new Date()).toISOString(),
     };
   },

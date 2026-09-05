@@ -6,6 +6,10 @@ const lectureSchema = new Schema({
   source: { type: String, enum: ["youtube", "paste"], default: "youtube" },
   durationSec: { type: Number, default: 0 },
   notesText: { type: String, default: "" },
+  chapters: {
+    type: [{ startSec: Number, title: String, _id: false }],
+    default: [],
+  },
   createdAt: { type: Date, default: Date.now },
 });
 

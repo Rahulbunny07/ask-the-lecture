@@ -2,7 +2,7 @@ import { Router } from "express";
 import { getStore } from "./store.js";
 import { fetchCaptions, fetchTitle, parseVideoId } from "./youtube.js";
 import { mergeCues, parseTranscriptText } from "./chunk.js";
-import { askStream, hasApiKey } from "./llm.js";
+import { askStream, generateChapters, hasApiKey } from "./llm.js";
 import type { Segment } from "./types.js";
 
 export const lectures = Router();
@@ -57,14 +57,21 @@ lectures.post("/", async (req, res) => {
   const title = body.title?.trim() || (await fetchTitle(videoId));
   const durationSec = segments[segments.length - 1]?.endSec ?? 0;
 
+  const draft = {
+    title,
+    videoId,
+    source,
+    durationSec,
+    notesText: body.notesText?.trim() ?? "",
+    chapters: [],
+  };
+  const chapters = await generateChapters(
+    { ...draft, id: "", createdAt: "" },
+    segments,
+  );
+
   const lecture = await getStore().createLecture(
-    {
-      title,
-      videoId,
-      source,
-      durationSec,
-      notesText: body.notesText?.trim() ?? "",
-    },
+    { ...draft, chapters },
     segments,
   );
 

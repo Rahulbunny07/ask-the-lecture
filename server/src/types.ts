@@ -5,6 +5,11 @@ export interface Segment {
   text: string;
 }
 
+export interface Chapter {
+  startSec: number;
+  title: string;
+}
+
 export interface Lecture {
   id: string;
   title: string;
@@ -12,6 +17,7 @@ export interface Lecture {
   source: "youtube" | "paste";
   durationSec: number;
   notesText: string;
+  chapters: Chapter[];
   createdAt: string;
 }
 
