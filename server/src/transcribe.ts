@@ -21,6 +21,8 @@ const GROQ_URL = "https://api.groq.com/openai/v1/audio/transcriptions";
 const GROQ_MODEL = "whisper-large-v3";
 
 /** Comfortably under Groq's per-request upload limit at our bitrate. */
+/** Groq caps uploads; stay under it with room to spare. */
+const MAX_UPLOAD_BYTES = 20 * 1024 * 1024;
 const CHUNK_SECONDS = 900;
 /** Enough to keep the API busy without tripping free-tier rate limits. */
 const CONCURRENCY = 4;
@@ -68,37 +70,68 @@ async function download(url: string, target: string): Promise<void> {
  * segment boundaries exact, which is what lets each piece's timestamps be
  * shifted back into lecture time by index alone.
  */
-async function splitToAudioChunks(source: string, dir: string): Promise<string[]> {
+async function runFfmpeg(args: string[], what: string): Promise<void> {
   try {
-    await run(
-      ffmpeg(),
-      [
-        "-y",
-        "-loglevel", "error",
-        "-i", source,
-        "-vn",
-        "-ac", "1",
-        "-ar", "16000",
-        "-b:a", "24k",
-        "-f", "segment",
-        "-segment_time", String(CHUNK_SECONDS),
-        "-reset_timestamps", "1",
-        join(dir, "chunk_%03d.mp3"),
-      ],
-      { maxBuffer: 1024 * 1024 * 16 },
-    );
+    await run(ffmpeg(), args, { maxBuffer: 1024 * 1024 * 16 });
   } catch (err) {
-    throw ffmpegError(err, "Extracting the audio");
+    throw ffmpegError(err, what);
+  }
+}
+
+async function chunkFiles(dir: string, ext: string): Promise<string[]> {
+  const files = (await readdir(dir))
+    .filter((name) => name.endsWith(ext))
+    .sort();
+  return files.map((name) => join(dir, name));
+}
+
+async function largestBytes(files: string[]): Promise<number> {
+  const sizes = await Promise.all(files.map(async (f) => (await stat(f)).size));
+  return sizes.reduce((a, b) => Math.max(a, b), 0);
+}
+
+/**
+ * Split the lecture's audio into upload-sized pieces.
+ *
+ * Copying the audio stream instead of re-encoding it is the difference
+ * between seconds and many minutes on a small instance - a 2h15m lecture
+ * copies in about three seconds and re-encodes in nearly a minute on a full
+ * core, far worse on a fraction of one. Re-encoding stays as the fallback for
+ * sources whose audio is too dense to copy into a small enough piece, or
+ * whose codec will not copy at all.
+ */
+async function splitToAudioChunks(source: string, dir: string): Promise<string[]> {
+  const base = ["-y", "-loglevel", "error", "-i", source, "-vn"];
+  const segmenting = [
+    "-f", "segment",
+    "-segment_time", String(CHUNK_SECONDS),
+    "-reset_timestamps", "1",
+  ];
+
+  try {
+    await runFfmpeg(
+      [...base, "-c:a", "copy", ...segmenting, "-segment_format", "mp4",
+       join(dir, "copy_%03d.m4a")],
+      "Extracting the audio",
+    );
+    const copied = await chunkFiles(dir, ".m4a");
+    if (copied.length > 0 && (await largestBytes(copied)) <= MAX_UPLOAD_BYTES) {
+      return copied;
+    }
+  } catch {
+    // Codec would not copy - fall through and re-encode.
   }
 
-  const files = (await readdir(dir))
-    .filter((name) => name.endsWith(".mp3"))
-    .sort();
-
-  if (files.length === 0) {
+  await runFfmpeg(
+    [...base, "-ac", "1", "-ar", "16000", "-b:a", "24k", ...segmenting,
+     join(dir, "enc_%03d.mp3")],
+    "Extracting the audio",
+  );
+  const encoded = await chunkFiles(dir, ".mp3");
+  if (encoded.length === 0) {
     throw new Error("No audio track was found in that video");
   }
-  return files.map((name) => join(dir, name));
+  return encoded;
 }
 
 interface GroqSegment {
@@ -133,7 +166,8 @@ async function transcribeChunk(
 
   const form = new FormData();
   const bytes = await readFile(file);
-  form.append("file", new Blob([new Uint8Array(bytes)]), "audio.mp3");
+  const name = file.endsWith(".m4a") ? "audio.m4a" : "audio.mp3";
+  form.append("file", new Blob([new Uint8Array(bytes)]), name);
   form.append("model", GROQ_MODEL);
   form.append("response_format", "verbose_json");
   form.append("timestamp_granularities[]", "segment");
