@@ -69,3 +69,17 @@ lectures.post("/", async (req, res) => {
 
   res.status(201).json({ ...lecture, segmentCount: segments.length });
 });
+
+lectures.get("/:id", async (req, res) => {
+  const id = req.params.id;
+  const store = getStore();
+
+  const lecture = await store.getLecture(id);
+  if (!lecture) {
+    res.status(404).json({ error: "Lecture not found" });
+    return;
+  }
+
+  const segments = await store.getSegments(id);
+  res.json({ ...lecture, segments });
+});
