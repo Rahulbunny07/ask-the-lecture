@@ -4,6 +4,7 @@ import { fetchCaptions, fetchTitle, parseVideoId } from "./youtube.js";
 import { mergeCues, parseTranscriptText } from "./chunk.js";
 import { probeMedia, titleFromUrl } from "./media.js";
 import { isSharePage, looksPlayable, resolveSource } from "./source.js";
+import { hasGroqKey, transcribeFromUrl } from "./transcribe.js";
 import { askStream, generateChapters, hasApiKey } from "./llm.js";
 import type { Segment } from "./types.js";
 
@@ -72,8 +73,19 @@ lectures.post("/", async (req, res) => {
       return;
     }
 
-    captionError = "Direct video files carry no caption track.";
     if (!probe.supportsRanges) rangeWarning = true;
+
+    // No caption track exists, so transcribe the audio unless the person
+    // already pasted a transcript - theirs is always better than ours.
+    if (!body.transcript?.trim() && hasGroqKey()) {
+      try {
+        segments = mergeCues(await transcribeFromUrl(mediaUrl));
+      } catch (err) {
+        captionError = err instanceof Error ? err.message : String(err);
+      }
+    } else {
+      captionError = "Direct video files carry no caption track.";
+    }
   }
 
   // Captions are the fast path; a pasted transcript is the safety net.
@@ -86,7 +98,9 @@ lectures.post("/", async (req, res) => {
       error:
         resolved.kind === "youtube"
           ? "This video has no captions we can read. Paste the transcript below and try again."
-          : `${resolved.provider} does not give us a caption track. Paste the transcript below and try again.`,
+          : hasGroqKey()
+            ? `We could not transcribe that ${resolved.provider} video. Paste the transcript below and try again.`
+            : `${resolved.provider} has no caption track, and transcription is not configured on the server. Paste the transcript below and try again.`,
       detail: captionError,
     });
     return;
