@@ -5,6 +5,7 @@ import { mergeCues, parseTranscriptText } from "./chunk.js";
 import { probeMedia, titleFromUrl } from "./media.js";
 import { isSharePage, looksPlayable, resolveSource } from "./source.js";
 import { hasGroqKey, transcribeFromUrl } from "./transcribe.js";
+import { UNREADABLE_REPLY, looksUnreadable } from "./readable.js";
 import { askStream, generateChapters, hasApiKey } from "./llm.js";
 import type { Segment } from "./types.js";
 
@@ -181,6 +182,15 @@ lectures.post("/:id/ask", async (req, res) => {
 
   const send = (payload: unknown) =>
     res.write(`data: ${JSON.stringify(payload)}\n\n`);
+
+  // Answer keyboard mash locally. A model call to say "I cannot read that"
+  // costs a real request and twenty seconds to tell the user nothing.
+  if (looksUnreadable(question)) {
+    send({ type: "delta", text: UNREADABLE_REPLY });
+    send({ type: "done" });
+    res.end();
+    return;
+  }
 
   try {
     for await (const text of askStream({ lecture, segments, question, mode })) {

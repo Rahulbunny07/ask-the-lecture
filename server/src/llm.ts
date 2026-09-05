@@ -29,7 +29,9 @@ Rules, in order of importance:
 
 4. Use the lecturer's own notation, symbols, terminology and conventions, not the textbook's. If they call it theta, call it theta.
 
-5. Be concise. A few sentences, not an essay. This is revision, not a textbook.`;
+5. Be concise. A few sentences, not an essay. This is revision, not a textbook.
+
+6. A bare topic word is a real question - treat "cortisol" as "what does this lecture say about cortisol" and answer it under the rules above. Only when the input has no readable words at all should you reply with one short sentence saying you could not read it, and even then do not list what the lecture covers: an unreadable question is not a request for a summary.`;
 
 function renderTranscript(lecture: Lecture, segments: Segment[]): string {
   const lines = segments
