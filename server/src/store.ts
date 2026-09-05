@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { Types } from "mongoose";
-import { hasMongo } from "./db.js";
+import { mongoReady } from "./db.js";
 import { LectureModel, SegmentModel } from "./models.js";
 import type { Lecture, NewLecture, Segment } from "./types.js";
 
@@ -85,9 +85,9 @@ function createMemoryStore(): LectureStore {
 const memoryStore = createMemoryStore();
 
 export function getStore(): LectureStore {
-  return hasMongo() ? mongoStore : memoryStore;
+  return mongoReady() ? mongoStore : memoryStore;
 }
 
 export function storeKind(): "mongodb" | "in-memory" {
-  return hasMongo() ? "mongodb" : "in-memory";
+  return mongoReady() ? "mongodb" : "in-memory";
 }

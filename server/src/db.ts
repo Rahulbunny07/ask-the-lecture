@@ -1,19 +1,33 @@
 import mongoose from "mongoose";
 
-let connected = false;
+let ready = false;
 
-/** Mongo is optional: without a URI the server falls back to an in-memory store. */
-export function hasMongo(): boolean {
+export function hasMongoUri(): boolean {
   return Boolean(process.env.MONGODB_URI);
 }
 
-export async function connectDb(): Promise<boolean> {
-  if (!hasMongo()) return false;
-  if (connected) return true;
+/** True only once a connection actually succeeded. */
+export function mongoReady(): boolean {
+  return ready;
+}
 
-  await mongoose.connect(process.env.MONGODB_URI as string, {
-    serverSelectionTimeoutMS: 8000,
-  });
-  connected = true;
-  return true;
+/**
+ * A bad or unreachable connection string must never take the server down -
+ * we log loudly and carry on with the in-memory store instead.
+ */
+export async function connectDb(): Promise<boolean> {
+  if (!hasMongoUri()) return false;
+  if (ready) return true;
+
+  try {
+    await mongoose.connect(process.env.MONGODB_URI as string, {
+      serverSelectionTimeoutMS: 8000,
+    });
+    ready = true;
+    return true;
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.warn(`mongo unavailable (${msg}) - falling back to in-memory store`);
+    return false;
+  }
 }
