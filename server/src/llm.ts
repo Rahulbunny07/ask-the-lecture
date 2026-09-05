@@ -45,7 +45,7 @@ function renderTranscript(lecture: Lecture, segments: Segment[]): string {
   return `LECTURE: ${lecture.title}\n\nTRANSCRIPT\n${lines}${notes}`;
 }
 
-export type AskMode = "default" | "simpler";
+export type AskMode = "default" | "simpler" | "points" | "analogy";
 
 export interface AskInput {
   lecture: Lecture;
@@ -61,7 +61,11 @@ export interface AskInput {
 const MODE_SUFFIX: Record<AskMode, string> = {
   default: "",
   simpler:
-    "\n\nExplain this a different way from how it was just put: plain language, a concrete everyday analogy, and no jargon unless you unpack it. Same lecture, same rules, still cited.",
+    "\n\nSay that again in plain words: short sentences, no jargon unless you unpack it, as if explaining to someone meeting the topic for the first time. Same lecture, same rules, still cited.",
+  points:
+    "\n\nRewrite that as a tight list: one idea per bullet, no preamble, and each bullet carrying its own citation. Same lecture, same rules.",
+  analogy:
+    "\n\nExplain that a different way from how it was just put, built around a concrete everyday analogy. Same lecture, same rules, still cited.",
 };
 
 /**

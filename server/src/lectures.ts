@@ -6,7 +6,7 @@ import { probeMedia, titleFromUrl } from "./media.js";
 import { isSharePage, looksPlayable, resolveSource } from "./source.js";
 import { hasGroqKey, transcribeFromUrl } from "./transcribe.js";
 import { UNREADABLE_REPLY, looksUnreadable } from "./readable.js";
-import { askStream, generateChapters, hasApiKey } from "./llm.js";
+import { askStream, generateChapters, hasApiKey, type AskMode } from "./llm.js";
 import type { Lecture, Segment } from "./types.js";
 
 export const lectures = Router();
@@ -192,7 +192,10 @@ lectures.get("/:id", async (req, res) => {
 lectures.post("/:id/ask", async (req, res) => {
   const body = (req.body ?? {}) as { question?: unknown; mode?: unknown };
   const question = String(body.question ?? "").trim();
-  const mode = body.mode === "simpler" ? "simpler" : "default";
+  const requested = String(body.mode ?? "");
+  const mode = (["simpler", "points", "analogy"].includes(requested)
+    ? requested
+    : "default") as AskMode;
 
   if (!question) {
     res.status(400).json({ error: "question is required" });

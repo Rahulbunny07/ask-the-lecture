@@ -82,7 +82,7 @@ export function getLecture(id: string): Promise<LectureDetail> {
  * The ask endpoint streams SSE. Deltas arrive as they are generated so the
  * answer appears progressively rather than after a long silence.
  */
-export type AskMode = "default" | "simpler";
+export type AskMode = "default" | "simpler" | "points" | "analogy";
 
 export async function askLecture(
   id: string,

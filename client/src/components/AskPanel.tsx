@@ -16,6 +16,13 @@ interface Message {
  */
 const NOT_COVERED = "This lecture doesn't cover that";
 
+/** Ways to re-ask the same question. Label is the button, ask is the turn. */
+const REFRAMES: { mode: AskMode; label: string; ask: string }[] = [
+  { mode: "simpler", label: "In simple words", ask: "Say that in simple words" },
+  { mode: "points", label: "Point by point", ask: "Break that into points" },
+  { mode: "analogy", label: "Explain differently", ask: "Explain that differently" },
+];
+
 function isNotCovered(text: string): boolean {
   return text.trimStart().startsWith(NOT_COVERED);
 }
@@ -79,8 +86,9 @@ export default function AskPanel({ lectureId, currentSec, onSeek }: Props) {
     void run(question, question, "default");
   }
 
-  function explainDifferently(question: string) {
-    void run("Explain that differently", question, "simpler");
+  function reframe(question: string, mode: AskMode) {
+    const option = REFRAMES.find((r) => r.mode === mode);
+    void run(option?.ask ?? "Explain that differently", question, mode);
   }
 
   function onKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
@@ -136,12 +144,17 @@ export default function AskPanel({ lectureId, currentSec, onSeek }: Props) {
                       <AnswerText text={message.text} onSeek={onSeek} />
                       {!busy && message.question && (
                         <div className="msg-actions">
-                          <button
-                            className="btn-mini"
-                            onClick={() => explainDifferently(message.question as string)}
-                          >
-                            Explain it differently
-                          </button>
+                          {REFRAMES.map((option) => (
+                            <button
+                              key={option.mode}
+                              className="btn-mini"
+                              onClick={() =>
+                                reframe(message.question as string, option.mode)
+                              }
+                            >
+                              {option.label}
+                            </button>
+                          ))}
                         </div>
                       )}
                     </>
