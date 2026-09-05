@@ -57,8 +57,22 @@ function scaleOf(values: number[]): number {
   return max > 86_400 ? 1000 : 1;
 }
 
-export async function fetchCaptions(videoId: string): Promise<Cue[]> {
-  const raw = await YoutubeTranscript.fetchTranscript(videoId);
+/**
+ * YouTube often carries auto-translated tracks alongside the original. Without
+ * an explicit language the scraper picks one arbitrarily - we saw the same
+ * video come back in English once and Arabic the next call - so pin it and
+ * only fall back to the default track if the preferred one is missing.
+ */
+export async function fetchCaptions(
+  videoId: string,
+  lang = "en",
+): Promise<Cue[]> {
+  let raw: Awaited<ReturnType<typeof YoutubeTranscript.fetchTranscript>>;
+  try {
+    raw = await YoutubeTranscript.fetchTranscript(videoId, { lang });
+  } catch {
+    raw = await YoutubeTranscript.fetchTranscript(videoId);
+  }
   if (!raw || raw.length === 0) return [];
 
   const scale = scaleOf(raw.map((c) => Number(c.offset) || 0));
