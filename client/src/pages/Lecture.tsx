@@ -62,7 +62,13 @@ export default function Lecture() {
   }
 
   if (!lecture || lecture.status === "processing") {
-    return <Preparing title={lecture?.title} stage={lecture?.stage ?? ""} />;
+    return (
+      <Preparing
+        title={lecture?.title}
+        stage={lecture?.stage ?? ""}
+        source={lecture?.source}
+      />
+    );
   }
 
   if (lecture.status === "failed") {

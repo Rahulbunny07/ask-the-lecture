@@ -4,6 +4,8 @@ interface Props {
   title?: string | undefined;
   /** What the server says it is doing right now. */
   stage: string;
+  /** YouTube hands us captions; everything else has to be transcribed. */
+  source?: "youtube" | "file" | undefined;
 }
 
 /**
@@ -11,22 +13,33 @@ interface Props {
  * free text, so these are matched loosely - a step is done once a later one
  * has been reported.
  */
-const STEPS = [
+const FILE_STEPS = [
   { key: "get", label: "Fetching the lecture" },
   { key: "audio", label: "Extracting the audio" },
   { key: "transcribe", label: "Transcribing the speech" },
   { key: "chapters", label: "Mapping the chapters" },
 ];
 
-function stepIndexFor(stage: string): number {
+const CAPTION_STEPS = [
+  { key: "get", label: "Fetching the lecture" },
+  { key: "captions", label: "Reading the captions" },
+  { key: "chapters", label: "Mapping the chapters" },
+];
+
+function stepIndexFor(stage: string, captionsOnly: boolean): number {
   const s = stage.toLowerCase();
+  if (captionsOnly) {
+    if (s.includes("chapter")) return 2;
+    if (s.includes("caption") || s.includes("transcript")) return 1;
+    return 0;
+  }
   if (s.includes("chapter")) return 3;
   if (s.includes("transcrib") || s.includes("your transcript")) return 2;
-  if (s.includes("audio") || s.includes("caption")) return 1;
+  if (s.includes("audio")) return 1;
   return 0;
 }
 
-export default function Preparing({ title, stage }: Props) {
+export default function Preparing({ title, stage, source }: Props) {
   const [elapsed, setElapsed] = useState(0);
 
   useEffect(() => {
@@ -38,7 +51,9 @@ export default function Preparing({ title, stage }: Props) {
     return () => clearInterval(timer);
   }, []);
 
-  const active = stepIndexFor(stage);
+  const captionsOnly = source === "youtube";
+  const steps = captionsOnly ? CAPTION_STEPS : FILE_STEPS;
+  const active = stepIndexFor(stage, captionsOnly);
 
   return (
     <main className="preparing">
@@ -56,7 +71,7 @@ export default function Preparing({ title, stage }: Props) {
         </div>
 
         <ol className="steps">
-          {STEPS.map((step, i) => (
+          {steps.map((step, i) => (
             <li
               key={step.key}
               className={
