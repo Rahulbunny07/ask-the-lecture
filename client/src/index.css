@@ -510,12 +510,12 @@ textarea:focus {
    ============================================================ */
 
 .reader {
-  /* A bounded height keeps the transcript scrolling inside itself. Letting it
-     grow to full length would make following playback scroll the whole column
-     and drag the player off screen. */
-  flex: 0 0 auto;
-  height: 34vh;
-  min-height: 240px;
+  /* Fill whatever the player leaves rather than sitting in a short box with
+     dead space under it, but keep a floor so a tall player cannot squeeze the
+     transcript down to a couple of lines. It scrolls inside itself so that
+     following playback never drags the video off screen. */
+  flex: 1 1 auto;
+  min-height: 440px;
   display: flex;
   flex-direction: column;
   background: var(--surface-1);
