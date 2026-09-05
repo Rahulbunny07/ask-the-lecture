@@ -25,8 +25,7 @@ export default function Setup() {
       });
       navigate(`/l/${lecture.id}`);
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Something broke";
-      setError(message);
+      setError(err instanceof Error ? err.message : "Something broke");
       // Captions failed - reveal the paste-a-transcript escape hatch.
       if (err instanceof ApiError && err.needsTranscript) {
         setShowTranscript(true);
@@ -38,62 +37,82 @@ export default function Setup() {
 
   return (
     <main className="setup">
-      <p className="eyebrow">02 · Ask the Lecture</p>
-      <h1>
-        Ask your lecture
-        <br />
-        anything.
-      </h1>
-      <p className="lede">
-        Paste one lecture. Get a study partner that answers from what your
-        teacher actually said — and shows you the second they said it.
-      </p>
+      <div className="setup-inner">
+        <header className="setup-head">
+          <span className="brand">Ask the Lecture</span>
+          <h1>
+            Ask your lecture
+            <br />
+            <span className="accent">anything.</span>
+          </h1>
+          <p>
+            Answers grounded in what your teacher actually said, with the exact
+            second they said it. Nothing invented from the internet.
+          </p>
+        </header>
 
-      <form onSubmit={onSubmit} className="setup-form">
-        <label className="field">
-          <span>Lecture video</span>
-          <input
-            type="text"
-            value={videoUrl}
-            onChange={(e) => setVideoUrl(e.target.value)}
-            placeholder="https://www.youtube.com/watch?v=..."
-            autoFocus
-            required
-          />
-        </label>
-
-        <label className="field">
-          <span>
-            Lecture notes <em>optional</em>
-          </span>
-          <textarea
-            value={notesText}
-            onChange={(e) => setNotesText(e.target.value)}
-            placeholder="Paste the notes your teacher shared, if you have them."
-            rows={4}
-          />
-        </label>
-
-        {showTranscript && (
-          <label className="field">
-            <span>
-              Transcript <em>captions unavailable — paste it here</em>
-            </span>
-            <textarea
-              value={transcript}
-              onChange={(e) => setTranscript(e.target.value)}
-              placeholder={"[00:12] Welcome back everyone...\n[01:04] So last week we covered..."}
-              rows={6}
+        <form onSubmit={onSubmit} className="card">
+          <div className="field">
+            <label className="field-label" htmlFor="videoUrl">
+              Lecture recording
+            </label>
+            <input
+              id="videoUrl"
+              type="text"
+              value={videoUrl}
+              onChange={(e) => setVideoUrl(e.target.value)}
+              placeholder="https://www.youtube.com/watch?v=..."
+              autoFocus
+              required
             />
-          </label>
-        )}
+          </div>
 
-        {error && <p className="error">{error}</p>}
+          <div className="field">
+            <label className="field-label" htmlFor="notes">
+              Lecture notes <em>optional</em>
+            </label>
+            <textarea
+              id="notes"
+              value={notesText}
+              onChange={(e) => setNotesText(e.target.value)}
+              placeholder="Paste the notes your teacher shared, if you have them."
+              rows={3}
+            />
+          </div>
 
-        <button type="submit" disabled={busy || !videoUrl.trim()}>
-          {busy ? "Reading the lecture…" : "Open lecture"}
-        </button>
-      </form>
+          {showTranscript && (
+            <div className="field">
+              <label className="field-label" htmlFor="transcript">
+                Transcript <em>captions unavailable, paste it here</em>
+              </label>
+              <textarea
+                id="transcript"
+                value={transcript}
+                onChange={(e) => setTranscript(e.target.value)}
+                placeholder={
+                  "[00:12] Welcome back everyone...\n[01:04] So last week we covered..."
+                }
+                rows={6}
+              />
+            </div>
+          )}
+
+          {error && <p className="alert">{error}</p>}
+
+          <div className="card-foot">
+            <button
+              type="submit"
+              className="btn-primary"
+              disabled={busy || !videoUrl.trim()}
+            >
+              {busy ? "Reading the lecture…" : "Open lecture"}
+            </button>
+            <span className="hint">
+              Takes a few seconds. One lecture at a time.
+            </span>
+          </div>
+        </form>
+      </div>
     </main>
   );
 }

@@ -33,7 +33,7 @@ export default function Lecture() {
   if (error) {
     return (
       <main className="centered">
-        <p className="error">{error}</p>
+        <p className="alert">{error}</p>
         <Link to="/">Start over</Link>
       </main>
     );
@@ -50,11 +50,11 @@ export default function Lecture() {
   return (
     <div className="workspace">
       <header className="topbar">
-        <Link to="/" className="mark">
+        <Link to="/" className="brand">
           Ask the Lecture
         </Link>
         <h1>{lecture.title}</h1>
-        <span className="muted">{formatTime(currentSec)}</span>
+        <span className="chip">{formatTime(currentSec)}</span>
       </header>
 
       <div className="workspace-body">
@@ -67,7 +67,12 @@ export default function Lecture() {
         </section>
 
         <aside className="panel">
-          <p className="muted">Ask panel goes here.</p>
+          <div className="panel-head">
+            <span className="panel-title">Ask</span>
+          </div>
+          <div className="panel-body">
+            <p className="muted">Ask panel goes here.</p>
+          </div>
         </aside>
       </div>
     </div>
