@@ -717,3 +717,56 @@ textarea:focus {
   padding: 0 18px;
   flex-shrink: 0;
 }
+
+/* ============================================================
+   Answers and citations
+   ============================================================ */
+
+.answer-para {
+  margin: 0 0 10px;
+}
+
+.answer-para:last-child {
+  margin-bottom: 0;
+}
+
+.answer-list {
+  margin: 0 0 10px;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.answer-list li::marker {
+  color: var(--text-3);
+}
+
+/* The citation is the trust surface - it has to look pressable. */
+.cite {
+  display: inline-flex;
+  align-items: center;
+  height: 19px;
+  margin: 0 1px;
+  padding: 0 6px;
+  vertical-align: baseline;
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent-hover);
+  background: var(--accent-soft);
+  border: 1px solid rgba(124, 108, 246, 0.28);
+  border-radius: 5px;
+  translate: 0 -1px;
+}
+
+.cite:hover {
+  color: #fff;
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.cite:active {
+  transform: scale(0.96);
+}

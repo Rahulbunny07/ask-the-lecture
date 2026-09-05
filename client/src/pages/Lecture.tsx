@@ -75,7 +75,11 @@ export default function Lecture() {
         </section>
 
         <aside className="panel">
-          <AskPanel lectureId={lecture.id} currentSec={currentSec} />
+          <AskPanel
+            lectureId={lecture.id}
+            currentSec={currentSec}
+            onSeek={(seconds) => playerRef.current?.seekTo(seconds)}
+          />
         </aside>
       </div>
     </div>

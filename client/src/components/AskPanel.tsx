@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { askLecture } from "../api";
 import { formatTime } from "../format";
+import AnswerText from "./AnswerText";
 
 interface Message {
   role: "user" | "assistant";
@@ -10,9 +11,10 @@ interface Message {
 interface Props {
   lectureId: string;
   currentSec: number;
+  onSeek: (seconds: number) => void;
 }
 
-export default function AskPanel({ lectureId, currentSec }: Props) {
+export default function AskPanel({ lectureId, currentSec, onSeek }: Props) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
@@ -105,7 +107,15 @@ export default function AskPanel({ lectureId, currentSec }: Props) {
           <div className="thread">
             {messages.map((message, i) => (
               <div key={i} className={`msg msg-${message.role}`}>
-                {message.text || <span className="thinking">Reading the lecture…</span>}
+                {message.role === "assistant" ? (
+                  message.text ? (
+                    <AnswerText text={message.text} onSeek={onSeek} />
+                  ) : (
+                    <span className="thinking">Reading the lecture…</span>
+                  )
+                ) : (
+                  message.text
+                )}
               </div>
             ))}
           </div>
