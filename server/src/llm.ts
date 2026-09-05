@@ -43,11 +43,24 @@ function renderTranscript(lecture: Lecture, segments: Segment[]): string {
   return `LECTURE: ${lecture.title}\n\nTRANSCRIPT\n${lines}${notes}`;
 }
 
+export type AskMode = "default" | "simpler";
+
 export interface AskInput {
   lecture: Lecture;
   segments: Segment[];
   question: string;
+  mode?: AskMode;
 }
+
+/**
+ * Mode rides on the user turn, not the system prompt, so the cached prefix
+ * stays byte-identical and a re-ask still hits the cache.
+ */
+const MODE_SUFFIX: Record<AskMode, string> = {
+  default: "",
+  simpler:
+    "\n\nExplain this a different way from how it was just put: plain language, a concrete everyday analogy, and no jargon unless you unpack it. Same lecture, same rules, still cited.",
+};
 
 /**
  * A single lecture is ~15k tokens, which fits in context many times over, so
@@ -59,6 +72,7 @@ export async function* askStream({
   lecture,
   segments,
   question,
+  mode = "default",
 }: AskInput): AsyncGenerator<string> {
   const stream = getClient().messages.stream({
     model: MODEL,
@@ -73,7 +87,7 @@ export async function* askStream({
         cache_control: { type: "ephemeral" },
       },
     ],
-    messages: [{ role: "user", content: question }],
+    messages: [{ role: "user", content: question + MODE_SUFFIX[mode] }],
   });
 
   for await (const event of stream) {

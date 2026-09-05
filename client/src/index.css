@@ -894,3 +894,26 @@ textarea:focus {
 .chapter-chip.is-active .chapter-time {
   color: var(--accent-hover);
 }
+
+.msg-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.btn-mini {
+  height: 26px;
+  padding: 0 10px;
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--text-3);
+  background: transparent;
+  border-color: var(--border);
+  border-radius: 999px;
+}
+
+.btn-mini:hover {
+  color: var(--text);
+  background: var(--surface-2);
+  border-color: var(--border-strong);
+}

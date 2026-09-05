@@ -93,7 +93,9 @@ lectures.get("/:id", async (req, res) => {
 });
 
 lectures.post("/:id/ask", async (req, res) => {
-  const question = String((req.body as { question?: unknown })?.question ?? "").trim();
+  const body = (req.body ?? {}) as { question?: unknown; mode?: unknown };
+  const question = String(body.question ?? "").trim();
+  const mode = body.mode === "simpler" ? "simpler" : "default";
   if (!question) {
     res.status(400).json({ error: "question is required" });
     return;
@@ -120,7 +122,7 @@ lectures.post("/:id/ask", async (req, res) => {
     res.write(`data: ${JSON.stringify(payload)}\n\n`);
 
   try {
-    for await (const text of askStream({ lecture, segments, question })) {
+    for await (const text of askStream({ lecture, segments, question, mode })) {
       send({ type: "delta", text });
     }
     send({ type: "done" });

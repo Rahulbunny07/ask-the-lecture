@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
-import { askLecture } from "../api";
+import { askLecture, type AskMode } from "../api";
 import { formatTime } from "../format";
 import AnswerText from "./AnswerText";
 
 interface Message {
   role: "user" | "assistant";
   text: string;
+  /** On an assistant turn, the question that produced it, so it can be re-asked. */
+  question?: string;
 }
 
 /**
@@ -38,7 +40,7 @@ export default function AskPanel({ lectureId, currentSec, onSeek }: Props) {
     });
   }, [messages]);
 
-  async function ask(question: string) {
+  async function run(display: string, question: string, mode: AskMode) {
     const trimmed = question.trim();
     if (!trimmed || busy) return;
 
@@ -47,8 +49,8 @@ export default function AskPanel({ lectureId, currentSec, onSeek }: Props) {
     setBusy(true);
     setMessages((prev) => [
       ...prev,
-      { role: "user", text: trimmed },
-      { role: "assistant", text: "" },
+      { role: "user", text: display },
+      { role: "assistant", text: "", question: trimmed },
     ]);
 
     try {
@@ -61,7 +63,7 @@ export default function AskPanel({ lectureId, currentSec, onSeek }: Props) {
           }
           return next;
         });
-      });
+      }, mode);
     } catch (err) {
       setError(err instanceof Error ? err.message : "That question failed");
       // Drop the empty assistant turn so the thread does not show a blank reply.
@@ -73,10 +75,18 @@ export default function AskPanel({ lectureId, currentSec, onSeek }: Props) {
     }
   }
 
+  function ask(question: string) {
+    void run(question, question, "default");
+  }
+
+  function explainDifferently(question: string) {
+    void run("Explain that differently", question, "simpler");
+  }
+
   function onKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
     if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
-      void ask(draft);
+      ask(draft);
     }
   }
 
@@ -105,7 +115,7 @@ export default function AskPanel({ lectureId, currentSec, onSeek }: Props) {
                 <button
                   key={s}
                   className="suggestion"
-                  onClick={() => void ask(s)}
+                  onClick={() => ask(s)}
                   disabled={busy}
                 >
                   {s}
@@ -124,6 +134,16 @@ export default function AskPanel({ lectureId, currentSec, onSeek }: Props) {
                         <span className="badge-warn">Not in this lecture</span>
                       )}
                       <AnswerText text={message.text} onSeek={onSeek} />
+                      {!busy && message.question && (
+                        <div className="msg-actions">
+                          <button
+                            className="btn-mini"
+                            onClick={() => explainDifferently(message.question as string)}
+                          >
+                            Explain it differently
+                          </button>
+                        </div>
+                      )}
                     </>
                   ) : (
                     <span className="thinking">Reading the lecture…</span>
@@ -150,7 +170,7 @@ export default function AskPanel({ lectureId, currentSec, onSeek }: Props) {
         />
         <button
           className="btn-primary send"
-          onClick={() => void ask(draft)}
+          onClick={() => ask(draft)}
           disabled={busy || !draft.trim()}
         >
           {busy ? "…" : "Ask"}

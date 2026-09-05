@@ -77,16 +77,19 @@ export function getLecture(id: string): Promise<LectureDetail> {
  * The ask endpoint streams SSE. Deltas arrive as they are generated so the
  * answer appears progressively rather than after a long silence.
  */
+export type AskMode = "default" | "simpler";
+
 export async function askLecture(
   id: string,
   question: string,
   onDelta: (text: string) => void,
+  mode: AskMode = "default",
   signal?: AbortSignal,
 ): Promise<void> {
   const res = await fetch(`${BASE}/api/lectures/${id}/ask`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ question }),
+    body: JSON.stringify({ question, mode }),
     signal,
   });
 
