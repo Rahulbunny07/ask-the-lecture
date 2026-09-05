@@ -1,5 +1,8 @@
 import { execFile } from "node:child_process";
-import { mkdtemp, readdir, readFile, rm } from "node:fs/promises";
+import { createWriteStream } from "node:fs";
+import { mkdtemp, readdir, readFile, rm, stat } from "node:fs/promises";
+import { Readable } from "node:stream";
+import { pipeline } from "node:stream/promises";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -36,8 +39,28 @@ function ffmpeg(): string {
   return ffmpegPath;
 }
 
+/** ffmpeg failures are useless without stderr, which execFile hides. */
+function ffmpegError(err: unknown, what: string): Error {
+  const stderr = String((err as { stderr?: string }).stderr ?? "").trim();
+  return new Error(stderr ? `${what}: ${stderr.slice(0, 400)}` : `${what} failed`);
+}
+
 /**
- * One pass over the network produces every chunk we need.
+ * Fetch the lecture to disk before touching ffmpeg.
+ *
+ * The static ffmpeg build has no TLS support on Linux, so it cannot open an
+ * https input at all - it works locally on Windows and fails the moment it is
+ * deployed. Downloading first sidesteps the protocol entirely.
+ */
+async function download(url: string, target: string): Promise<void> {
+  const res = await fetch(url, { redirect: "follow" });
+  if (!res.ok) throw new Error(`Downloading the video failed with ${res.status}`);
+  if (!res.body) throw new Error("The video download returned an empty body");
+  await pipeline(Readable.fromWeb(res.body as never), createWriteStream(target));
+}
+
+/**
+ * One pass over the file produces every chunk we need.
  *
  * ffmpeg reads the URL directly, so a 250MB lecture never touches the disk;
  * it drops the video, downmixes to mono 16kHz and writes fixed-length pieces
@@ -45,24 +68,28 @@ function ffmpeg(): string {
  * segment boundaries exact, which is what lets each piece's timestamps be
  * shifted back into lecture time by index alone.
  */
-async function splitToAudioChunks(url: string, dir: string): Promise<string[]> {
-  await run(
-    ffmpeg(),
-    [
-      "-y",
-      "-loglevel", "error",
-      "-i", url,
-      "-vn",
-      "-ac", "1",
-      "-ar", "16000",
-      "-b:a", "24k",
-      "-f", "segment",
-      "-segment_time", String(CHUNK_SECONDS),
-      "-reset_timestamps", "1",
-      join(dir, "chunk_%03d.mp3"),
-    ],
-    { maxBuffer: 1024 * 1024 * 16 },
-  );
+async function splitToAudioChunks(source: string, dir: string): Promise<string[]> {
+  try {
+    await run(
+      ffmpeg(),
+      [
+        "-y",
+        "-loglevel", "error",
+        "-i", source,
+        "-vn",
+        "-ac", "1",
+        "-ar", "16000",
+        "-b:a", "24k",
+        "-f", "segment",
+        "-segment_time", String(CHUNK_SECONDS),
+        "-reset_timestamps", "1",
+        join(dir, "chunk_%03d.mp3"),
+      ],
+      { maxBuffer: 1024 * 1024 * 16 },
+    );
+  } catch (err) {
+    throw ffmpegError(err, "Extracting the audio");
+  }
 
   const files = (await readdir(dir))
     .filter((name) => name.endsWith(".mp3"))
@@ -167,8 +194,14 @@ export async function transcribeFromUrl(
 ): Promise<Cue[]> {
   const workDir = await mkdtemp(join(tmpdir(), "atl-"));
 
+  const videoPath = join(workDir, "source");
+
   try {
-    const chunks = await splitToAudioChunks(url, workDir);
+    await download(url, videoPath);
+    const { size } = await stat(videoPath);
+    if (size === 0) throw new Error("The downloaded video was empty");
+
+    const chunks = await splitToAudioChunks(videoPath, workDir);
     const results: Cue[][] = new Array(chunks.length);
     let completed = 0;
     let next = 0;

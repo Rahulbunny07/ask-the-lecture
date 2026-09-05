@@ -136,7 +136,15 @@ async function processLecture(id: string, job: Job): Promise<void> {
       segments = parseTranscriptText(job.transcript);
     } else if (job.videoId) {
       await setStage("Reading the captions");
-      segments = mergeCues(await fetchCaptions(job.videoId));
+      try {
+        segments = mergeCues(await fetchCaptions(job.videoId));
+      } catch {
+        // YouTube blocks caption scraping from datacenter IPs, so this works
+        // locally and fails once deployed. Say what to do instead.
+        throw new Error(
+          "YouTube will not give this server its captions - it blocks requests from hosting providers. Paste the transcript, or use a direct video link.",
+        );
+      }
     } else {
       await setStage("Extracting the audio");
       const cues = await transcribeFromUrl(job.mediaUrl, (done, total) => {
