@@ -1,22 +1,3 @@
-const MEDIA_EXTENSIONS = /\.(mp4|m4v|webm|mov|ogv|mp3|m4a|wav)(\?.*)?$/i;
-
-/**
- * Anything that is not a YouTube link but looks like a playable file. Course
- * platforms typically serve lectures straight off a CDN, so this is the
- * common case outside YouTube.
- */
-export function looksLikeMediaUrl(input: string): boolean {
-  const raw = input.trim();
-  let url: URL;
-  try {
-    url = new URL(raw);
-  } catch {
-    return false;
-  }
-  if (url.protocol !== "http:" && url.protocol !== "https:") return false;
-  return MEDIA_EXTENSIONS.test(url.pathname) || MEDIA_EXTENSIONS.test(raw);
-}
-
 export interface MediaProbe {
   ok: boolean;
   status: number;
@@ -93,7 +74,7 @@ export async function probeMedia(url: string): Promise<MediaProbe> {
 export function titleFromUrl(url: string): string {
   try {
     const name = new URL(url).pathname.split("/").filter(Boolean).pop() ?? "";
-    const stem = decodeURIComponent(name).replace(MEDIA_EXTENSIONS, "");
+    const stem = decodeURIComponent(name).replace(/\.[a-z0-9]{2,5}$/i, "");
     const cleaned = stem.replace(/[_-]+/g, " ").trim();
     return cleaned || "Untitled lecture";
   } catch {

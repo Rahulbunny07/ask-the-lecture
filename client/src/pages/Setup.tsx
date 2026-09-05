@@ -61,7 +61,7 @@ export default function Setup() {
               type="text"
               value={videoUrl}
               onChange={(e) => setVideoUrl(e.target.value)}
-              placeholder="https://www.youtube.com/watch?v=..."
+              placeholder="YouTube, Google Drive, Dropbox, or a direct .mp4 link"
               autoFocus
               required
             />
@@ -108,7 +108,7 @@ export default function Setup() {
               {busy ? "Reading the lecture…" : "Open lecture"}
             </button>
             <span className="hint">
-              Around twenty seconds: we read the captions and map the chapters.
+              YouTube, Drive, Dropbox or any direct video link. Around twenty seconds.
             </span>
           </div>
         </form>
