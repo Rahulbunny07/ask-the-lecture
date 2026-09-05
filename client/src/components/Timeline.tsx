@@ -32,11 +32,9 @@ export default function Timeline({
   );
 
   useEffect(() => {
-    // "nearest" only scrolls when the chip is actually out of view; centring
-    // pushes the first chapter off the left edge as soon as the page loads.
     activeChipRef.current?.scrollIntoView({
       block: "nearest",
-      inline: "nearest",
+      inline: "center",
       behavior: "smooth",
     });
   }, [activeIdx]);

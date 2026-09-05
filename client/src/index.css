@@ -415,10 +415,6 @@ textarea:focus {
 .player {
   flex-shrink: 0;
   width: 100%;
-  /* Cap the height by capping the width - a full-width 16:9 player in a wide
-     pane grows tall enough to starve the timeline and transcript below it. */
-  max-width: calc(46vh * 16 / 9);
-  margin: 0 auto;
   aspect-ratio: 16 / 9;
   background: #000;
   border: 1px solid var(--border);
@@ -513,10 +509,7 @@ textarea:focus {
 
 .reader {
   flex: 1;
-  min-height: 180px;
-  width: 100%;
-  max-width: calc(46vh * 16 / 9);
-  margin: 0 auto;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   background: var(--surface-1);
@@ -814,10 +807,6 @@ textarea:focus {
   flex-direction: column;
   gap: 9px;
   flex-shrink: 0;
-  /* Match the player's width so the bar lines up with the video it describes. */
-  width: 100%;
-  max-width: calc(46vh * 16 / 9);
-  margin: 0 auto;
 }
 
 .timeline-bar {
