@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import Player, { type PlayerHandle } from "../components/Player";
+import TranscriptPane from "../components/TranscriptPane";
 import { getLecture, type LectureDetail } from "../api";
 import { formatTime } from "../format";
 
@@ -63,6 +64,12 @@ export default function Lecture() {
             ref={playerRef}
             videoId={lecture.videoId}
             onTime={setCurrentSec}
+          />
+          <TranscriptPane
+            segments={lecture.segments}
+            notesText={lecture.notesText}
+            currentSec={currentSec}
+            onSeek={(seconds) => playerRef.current?.seekTo(seconds)}
           />
         </section>
 
