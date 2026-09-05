@@ -409,7 +409,9 @@ textarea:focus {
   gap: 14px;
   padding: 16px;
   border-right: 1px solid var(--border);
-  overflow: hidden;
+  /* A large player pushes the timeline and transcript past the fold, so this
+     column scrolls rather than clipping whatever does not fit. */
+  overflow-y: auto;
 }
 
 .player {
@@ -508,8 +510,12 @@ textarea:focus {
    ============================================================ */
 
 .reader {
-  flex: 1;
-  min-height: 0;
+  /* A bounded height keeps the transcript scrolling inside itself. Letting it
+     grow to full length would make following playback scroll the whole column
+     and drag the player off screen. */
+  flex: 0 0 auto;
+  height: 34vh;
+  min-height: 240px;
   display: flex;
   flex-direction: column;
   background: var(--surface-1);
