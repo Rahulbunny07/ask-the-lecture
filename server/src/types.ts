@@ -10,6 +10,8 @@ export interface Chapter {
   title: string;
 }
 
+export type LectureStatus = "processing" | "ready" | "failed";
+
 export interface Lecture {
   id: string;
   title: string;
@@ -21,6 +23,10 @@ export interface Lecture {
   durationSec: number;
   notesText: string;
   chapters: Chapter[];
+  status: LectureStatus;
+  /** Human-readable description of what is happening right now. */
+  stage: string;
+  error: string | null;
   createdAt: string;
 }
 

@@ -1,13 +1,21 @@
 import { useState, type FormEvent } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { ApiError, createLecture } from "../api";
 
 export default function Setup() {
   const navigate = useNavigate();
-  const [videoUrl, setVideoUrl] = useState("");
+  const location = useLocation();
+  const prefill = (location.state ?? null) as {
+    videoUrl?: string;
+    needsTranscript?: boolean;
+  } | null;
+
+  const [videoUrl, setVideoUrl] = useState(prefill?.videoUrl ?? "");
   const [notesText, setNotesText] = useState("");
   const [transcript, setTranscript] = useState("");
-  const [showTranscript, setShowTranscript] = useState(false);
+  const [showTranscript, setShowTranscript] = useState(
+    Boolean(prefill?.needsTranscript),
+  );
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 

@@ -1,13 +1,13 @@
 import { Router } from "express";
 import { getStore } from "./store.js";
-import { fetchCaptions, fetchTitle, parseVideoId } from "./youtube.js";
+import { fetchCaptions, fetchTitle } from "./youtube.js";
 import { mergeCues, parseTranscriptText } from "./chunk.js";
 import { probeMedia, titleFromUrl } from "./media.js";
 import { isSharePage, looksPlayable, resolveSource } from "./source.js";
 import { hasGroqKey, transcribeFromUrl } from "./transcribe.js";
 import { UNREADABLE_REPLY, looksUnreadable } from "./readable.js";
 import { askStream, generateChapters, hasApiKey } from "./llm.js";
-import type { Segment } from "./types.js";
+import type { Lecture, Segment } from "./types.js";
 
 export const lectures = Router();
 
@@ -18,6 +18,19 @@ interface IngestBody {
   notesText?: string;
 }
 
+interface Job {
+  videoId: string;
+  mediaUrl: string;
+  provider: string;
+  transcript: string;
+}
+
+/**
+ * Ingest is too slow to hold a request open - a two hour lecture is about two
+ * minutes of audio splitting, transcription and chapter mapping - so anything
+ * knowable up front is checked synchronously and the rest runs in the
+ * background against a lecture the client can poll.
+ */
 lectures.post("/", async (req, res) => {
   const body = (req.body ?? {}) as IngestBody;
 
@@ -34,19 +47,9 @@ lectures.post("/", async (req, res) => {
 
   const videoId = resolved.kind === "youtube" ? resolved.videoId : "";
   const mediaUrl = resolved.kind === "file" ? resolved.mediaUrl : "";
-
-  let segments: Segment[] = [];
-  const source: "youtube" | "file" = resolved.kind;
-  let captionError: string | null = null;
   let rangeWarning = false;
 
-  if (resolved.kind === "youtube") {
-    try {
-      segments = mergeCues(await fetchCaptions(videoId));
-    } catch (err) {
-      captionError = err instanceof Error ? err.message : String(err);
-    }
-  } else {
+  if (resolved.kind === "file") {
     const probe = await probeMedia(mediaUrl);
 
     if (!probe.ok) {
@@ -74,83 +77,115 @@ lectures.post("/", async (req, res) => {
       return;
     }
 
-    if (!probe.supportsRanges) rangeWarning = true;
-
-    // No caption track exists, so transcribe the audio unless the person
-    // already pasted a transcript - theirs is always better than ours.
-    if (!body.transcript?.trim() && hasGroqKey()) {
-      try {
-        segments = mergeCues(await transcribeFromUrl(mediaUrl));
-      } catch (err) {
-        captionError = err instanceof Error ? err.message : String(err);
-      }
-    } else {
-      captionError = "Direct video files carry no caption track.";
+    if (!body.transcript?.trim() && !hasGroqKey()) {
+      res.status(422).json({
+        error: `${resolved.provider} has no caption track, and transcription is not configured on the server. Paste the transcript below and try again.`,
+      });
+      return;
     }
-  }
 
-  // Captions are the fast path; a pasted transcript is the safety net.
-  if (segments.length === 0 && body.transcript?.trim()) {
-    segments = parseTranscriptText(body.transcript);
-  }
-
-  if (segments.length === 0) {
-    res.status(422).json({
-      error:
-        resolved.kind === "youtube"
-          ? "This video has no captions we can read. Paste the transcript below and try again."
-          : hasGroqKey()
-            ? `We could not transcribe that ${resolved.provider} video. Paste the transcript below and try again.`
-            : `${resolved.provider} has no caption track, and transcription is not configured on the server. Paste the transcript below and try again.`,
-      detail: captionError,
-    });
-    return;
+    rangeWarning = !probe.supportsRanges;
   }
 
   const title =
     body.title?.trim() ||
     (videoId ? await fetchTitle(videoId) : titleFromUrl(body.videoUrl));
-  const durationSec = segments[segments.length - 1]?.endSec ?? 0;
-
-  const draft = {
-    title,
-    videoId,
-    mediaUrl,
-    source,
-    durationSec,
-    notesText: body.notesText?.trim() ?? "",
-    chapters: [],
-  };
-  const chapters = await generateChapters(
-    { ...draft, id: "", createdAt: "" },
-    segments,
-  );
 
   const lecture = await getStore().createLecture(
-    { ...draft, chapters },
-    segments,
+    {
+      title,
+      videoId,
+      mediaUrl,
+      source: resolved.kind,
+      durationSec: 0,
+      notesText: body.notesText?.trim() ?? "",
+      chapters: [],
+      status: "processing",
+      stage: "Getting the lecture",
+      error: null,
+    },
+    [],
   );
 
-  res.status(201).json({
+  res.status(202).json({
     ...lecture,
-    segmentCount: segments.length,
     warning: rangeWarning
       ? "This video host does not support range requests, so the player cannot jump to a timestamp. Citations will still show, but clicking them will not move the video."
       : null,
   });
+
+  // Deliberately not awaited: the client polls the lecture for progress.
+  void processLecture(lecture.id, {
+    videoId,
+    mediaUrl,
+    provider: resolved.provider,
+    transcript: body.transcript?.trim() ?? "",
+  });
 });
 
-lectures.get("/:id", async (req, res) => {
-  const id = req.params.id;
+async function processLecture(id: string, job: Job): Promise<void> {
   const store = getStore();
+  const setStage = (stage: string) => store.updateLecture(id, { stage });
 
-  const lecture = await store.getLecture(id);
+  try {
+    let segments: Segment[] = [];
+
+    // A pasted transcript always wins - a human one beats ours on names.
+    if (job.transcript) {
+      await setStage("Reading your transcript");
+      segments = parseTranscriptText(job.transcript);
+    } else if (job.videoId) {
+      await setStage("Reading the captions");
+      segments = mergeCues(await fetchCaptions(job.videoId));
+    } else {
+      await setStage("Extracting the audio");
+      const cues = await transcribeFromUrl(job.mediaUrl, (done, total) => {
+        void setStage(`Transcribing part ${done} of ${total}`);
+      });
+      segments = mergeCues(cues);
+    }
+
+    if (segments.length === 0) {
+      throw new Error(
+        job.videoId
+          ? "This video has no captions we can read. Paste the transcript and try again."
+          : "We could not get any speech out of that video. Paste the transcript and try again.",
+      );
+    }
+
+    await store.setSegments(id, segments);
+    const durationSec = segments[segments.length - 1]?.endSec ?? 0;
+    await store.updateLecture(id, { durationSec, stage: "Mapping the chapters" });
+
+    const lecture = await store.getLecture(id);
+    const chapters = lecture ? await generateChapters(lecture, segments) : [];
+
+    await store.updateLecture(id, {
+      chapters,
+      status: "ready",
+      stage: "",
+      error: null,
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error(`ingest failed for ${id}:`, message);
+    await store.updateLecture(id, {
+      status: "failed",
+      stage: "",
+      error: message,
+    });
+  }
+}
+
+lectures.get("/:id", async (req, res) => {
+  const store = getStore();
+  const lecture = await store.getLecture(req.params.id);
   if (!lecture) {
     res.status(404).json({ error: "Lecture not found" });
     return;
   }
 
-  const segments = await store.getSegments(id);
+  const segments = await store.getSegments(req.params.id);
   res.json({ ...lecture, segments });
 });
 
@@ -158,6 +193,7 @@ lectures.post("/:id/ask", async (req, res) => {
   const body = (req.body ?? {}) as { question?: unknown; mode?: unknown };
   const question = String(body.question ?? "").trim();
   const mode = body.mode === "simpler" ? "simpler" : "default";
+
   if (!question) {
     res.status(400).json({ error: "question is required" });
     return;
@@ -168,9 +204,13 @@ lectures.post("/:id/ask", async (req, res) => {
   }
 
   const store = getStore();
-  const lecture = await store.getLecture(req.params.id);
+  const lecture: Lecture | null = await store.getLecture(req.params.id);
   if (!lecture) {
     res.status(404).json({ error: "Lecture not found" });
+    return;
+  }
+  if (lecture.status !== "ready") {
+    res.status(409).json({ error: "This lecture is still being prepared" });
     return;
   }
   const segments = await store.getSegments(req.params.id);

@@ -8,6 +8,9 @@ export interface LectureStore {
   createLecture(input: NewLecture, segments: Segment[]): Promise<Lecture>;
   getLecture(id: string): Promise<Lecture | null>;
   getSegments(id: string): Promise<Segment[]>;
+  /** Ingest runs in the background, so a lecture is updated after creation. */
+  updateLecture(id: string, patch: Partial<NewLecture>): Promise<void>;
+  setSegments(id: string, segments: Segment[]): Promise<void>;
 }
 
 const mongoStore: LectureStore = {
@@ -30,6 +33,9 @@ const mongoStore: LectureStore = {
         startSec: c.startSec ?? 0,
         title: c.title ?? "",
       })),
+      status: (doc.status ?? "ready") as Lecture["status"],
+      stage: doc.stage ?? "",
+      error: doc.error ?? null,
       createdAt: (doc.createdAt ?? new Date()).toISOString(),
     };
   },
@@ -50,6 +56,9 @@ const mongoStore: LectureStore = {
         startSec: c.startSec ?? 0,
         title: c.title ?? "",
       })),
+      status: (doc.status ?? "ready") as Lecture["status"],
+      stage: doc.stage ?? "",
+      error: doc.error ?? null,
       createdAt: (doc.createdAt ?? new Date()).toISOString(),
     };
   },
@@ -63,6 +72,21 @@ const mongoStore: LectureStore = {
       endSec: d.endSec,
       text: d.text,
     }));
+  },
+
+  async updateLecture(id, patch) {
+    if (!Types.ObjectId.isValid(id)) return;
+    await LectureModel.updateOne({ _id: id }, { $set: patch });
+  },
+
+  async setSegments(id, segments) {
+    if (!Types.ObjectId.isValid(id)) return;
+    await SegmentModel.deleteMany({ lectureId: id });
+    if (segments.length > 0) {
+      await SegmentModel.insertMany(
+        segments.map((s) => ({ ...s, lectureId: new Types.ObjectId(id) })),
+      );
+    }
   },
 };
 
@@ -88,6 +112,13 @@ function createMemoryStore(): LectureStore {
     },
     async getSegments(id) {
       return segments.get(id) ?? [];
+    },
+    async updateLecture(id, patch) {
+      const current = lectures.get(id);
+      if (current) lectures.set(id, { ...current, ...patch });
+    },
+    async setSegments(id, incoming) {
+      segments.set(id, incoming);
     },
   };
 }

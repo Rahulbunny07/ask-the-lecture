@@ -11,6 +11,13 @@ const lectureSchema = new Schema({
     type: [{ startSec: Number, title: String, _id: false }],
     default: [],
   },
+  status: {
+    type: String,
+    enum: ["processing", "ready", "failed"],
+    default: "ready",
+  },
+  stage: { type: String, default: "" },
+  error: { type: String, default: null },
   createdAt: { type: Date, default: Date.now },
 });
 

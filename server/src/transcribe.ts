@@ -1,11 +1,8 @@
 import { execFile } from "node:child_process";
-import { createWriteStream } from "node:fs";
-import { mkdtemp, rm, stat } from "node:fs/promises";
+import { mkdtemp, readdir, readFile, rm } from "node:fs/promises";
+import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Readable } from "node:stream";
-import { pipeline } from "node:stream/promises";
-import { createRequire } from "node:module";
 import { promisify } from "node:util";
 import type { Cue } from "./youtube.js";
 
@@ -20,11 +17,10 @@ const ffmpegPath = createRequire(import.meta.url)("ffmpeg-static") as
 const GROQ_URL = "https://api.groq.com/openai/v1/audio/transcriptions";
 const GROQ_MODEL = "whisper-large-v3";
 
-/** Groq caps uploads; stay under it with room to spare. */
-const MAX_UPLOAD_BYTES = 20 * 1024 * 1024;
+/** Comfortably under Groq's per-request upload limit at our bitrate. */
 const CHUNK_SECONDS = 900;
-/** Refuse absurd downloads rather than filling the disk of a small dyno. */
-const MAX_DOWNLOAD_BYTES = 2 * 1024 * 1024 * 1024;
+/** Enough to keep the API busy without tripping free-tier rate limits. */
+const CONCURRENCY = 4;
 
 export function hasGroqKey(): boolean {
   return Boolean(groqKey());
@@ -40,71 +36,42 @@ function ffmpeg(): string {
   return ffmpegPath;
 }
 
-async function download(url: string, target: string): Promise<void> {
-  const res = await fetch(url, { redirect: "follow" });
-  if (!res.ok) throw new Error(`Download failed with ${res.status}`);
-  if (!res.body) throw new Error("Download returned an empty body");
-
-  const declared = Number(res.headers.get("content-length") ?? 0);
-  if (declared > MAX_DOWNLOAD_BYTES) {
-    throw new Error("That video is too large to process");
-  }
-
-  await pipeline(Readable.fromWeb(res.body as never), createWriteStream(target));
-}
-
 /**
- * Strip the video, downmix to mono and drop to 16kHz - Whisper gains nothing
- * from more, and it turns a few hundred megabytes into a few.
+ * One pass over the network produces every chunk we need.
+ *
+ * ffmpeg reads the URL directly, so a 250MB lecture never touches the disk;
+ * it drops the video, downmixes to mono 16kHz and writes fixed-length pieces
+ * in a single transcode. Re-encoding (rather than stream copy) makes the
+ * segment boundaries exact, which is what lets each piece's timestamps be
+ * shifted back into lecture time by index alone.
  */
-async function extractAudio(source: string, target: string): Promise<void> {
-  await run(ffmpeg(), [
-    "-y",
-    "-loglevel", "error",
-    "-i", source,
-    "-vn",
-    "-ac", "1",
-    "-ar", "16000",
-    "-b:a", "24k",
-    target,
-  ], { maxBuffer: 1024 * 1024 * 16 });
-}
+async function splitToAudioChunks(url: string, dir: string): Promise<string[]> {
+  await run(
+    ffmpeg(),
+    [
+      "-y",
+      "-loglevel", "error",
+      "-i", url,
+      "-vn",
+      "-ac", "1",
+      "-ar", "16000",
+      "-b:a", "24k",
+      "-f", "segment",
+      "-segment_time", String(CHUNK_SECONDS),
+      "-reset_timestamps", "1",
+      join(dir, "chunk_%03d.mp3"),
+    ],
+    { maxBuffer: 1024 * 1024 * 16 },
+  );
 
-async function sliceAudio(
-  source: string,
-  target: string,
-  startSec: number,
-  durationSec: number,
-): Promise<void> {
-  await run(ffmpeg(), [
-    "-y",
-    "-loglevel", "error",
-    "-ss", String(startSec),
-    "-t", String(durationSec),
-    "-i", source,
-    "-vn",
-    "-ac", "1",
-    "-ar", "16000",
-    "-b:a", "24k",
-    target,
-  ], { maxBuffer: 1024 * 1024 * 16 });
-}
+  const files = (await readdir(dir))
+    .filter((name) => name.endsWith(".mp3"))
+    .sort();
 
-/** ffmpeg reports duration on stderr; there is no ffprobe in ffmpeg-static. */
-async function durationOf(file: string): Promise<number> {
-  try {
-    await run(ffmpeg(), ["-i", file, "-f", "null", "-"], {
-      maxBuffer: 1024 * 1024 * 16,
-    });
-    return 0;
-  } catch (err) {
-    const output = String((err as { stderr?: string }).stderr ?? "");
-    const match = /Duration:\s*(\d+):(\d+):(\d+\.\d+)/.exec(output);
-    if (!match) return 0;
-    return (
-      Number(match[1]) * 3600 + Number(match[2]) * 60 + Number(match[3])
-    );
+  if (files.length === 0) {
+    throw new Error("No audio track was found in that video");
   }
+  return files.map((name) => join(dir, name));
 }
 
 interface GroqSegment {
@@ -113,12 +80,32 @@ interface GroqSegment {
   text: string;
 }
 
-async function transcribeFile(file: string, offsetSec: number): Promise<Cue[]> {
+const RATE_LIMITED = 429;
+/** Wait out a short cooldown, but never stall an ingest for minutes. */
+const MAX_RETRY_WAIT_MS = 75_000;
+
+class QuotaError extends Error {}
+
+function retryAfterMs(message: string): number | null {
+  const match = /try again in\s+(?:(\d+)m)?([\d.]+)s/i.exec(message);
+  if (!match) return null;
+  const minutes = Number(match[1] ?? 0);
+  const seconds = Number(match[2] ?? 0);
+  return Math.ceil((minutes * 60 + seconds) * 1000) + 1000;
+}
+
+const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+async function transcribeChunk(
+  file: string,
+  offsetSec: number,
+  attempt = 0,
+): Promise<Cue[]> {
   const key = groqKey();
   if (!key) throw new Error("GROQ_API_KEY is not set");
 
   const form = new FormData();
-  const bytes = await import("node:fs/promises").then((fs) => fs.readFile(file));
+  const bytes = await readFile(file);
   form.append("file", new Blob([new Uint8Array(bytes)]), "audio.mp3");
   form.append("model", GROQ_MODEL);
   form.append("response_format", "verbose_json");
@@ -136,7 +123,23 @@ async function transcribeFile(file: string, offsetSec: number): Promise<Cue[]> {
   };
 
   if (!res.ok) {
-    throw new Error(payload.error?.message ?? `Groq returned ${res.status}`);
+    const message = payload.error?.message ?? `Groq returned ${res.status}`;
+
+    if (res.status === RATE_LIMITED) {
+      const delay = retryAfterMs(message);
+      // A short cooldown is worth waiting out; a long one means the recording
+      // is simply larger than the account's hourly allowance.
+      if (delay !== null && delay <= MAX_RETRY_WAIT_MS && attempt < 2) {
+        await wait(delay);
+        return transcribeChunk(file, offsetSec, attempt + 1);
+      }
+      throw new QuotaError(
+        "This recording is longer than the transcription account allows per hour. " +
+          "Use a shorter lecture, paste a transcript, or raise the Groq tier.",
+      );
+    }
+
+    throw new Error(message);
   }
 
   return (payload.segments ?? [])
@@ -148,35 +151,46 @@ async function transcribeFile(file: string, offsetSec: number): Promise<Cue[]> {
     .filter((cue) => cue.text.length > 0);
 }
 
+export interface TranscribeProgress {
+  (done: number, total: number): void;
+}
+
 /**
- * Download a lecture, reduce it to speech-sized audio and transcribe it with
- * timestamps. Long recordings are sliced so a single upload never exceeds the
- * API limit, with each slice's timestamps shifted back into lecture time.
+ * Turn a lecture URL into timestamped cues.
+ *
+ * Chunks go out several at a time - a two hour lecture is ten requests, and
+ * running them one after another wastes most of the wall clock waiting.
  */
-export async function transcribeFromUrl(url: string): Promise<Cue[]> {
+export async function transcribeFromUrl(
+  url: string,
+  onProgress?: TranscribeProgress,
+): Promise<Cue[]> {
   const workDir = await mkdtemp(join(tmpdir(), "atl-"));
-  const videoPath = join(workDir, "source");
-  const audioPath = join(workDir, "audio.mp3");
 
   try {
-    await download(url, videoPath);
-    await extractAudio(videoPath, audioPath);
+    const chunks = await splitToAudioChunks(url, workDir);
+    const results: Cue[][] = new Array(chunks.length);
+    let completed = 0;
+    let next = 0;
 
-    const { size } = await stat(audioPath);
-    if (size <= MAX_UPLOAD_BYTES) {
-      return await transcribeFile(audioPath, 0);
+    async function worker(): Promise<void> {
+      for (;;) {
+        const index = next++;
+        if (index >= chunks.length) return;
+        results[index] = await transcribeChunk(
+          chunks[index] as string,
+          index * CHUNK_SECONDS,
+        );
+        completed += 1;
+        onProgress?.(completed, chunks.length);
+      }
     }
 
-    const total = await durationOf(audioPath);
-    if (total <= 0) throw new Error("Could not read the audio duration");
+    await Promise.all(
+      Array.from({ length: Math.min(CONCURRENCY, chunks.length) }, worker),
+    );
 
-    const cues: Cue[] = [];
-    for (let offset = 0; offset < total; offset += CHUNK_SECONDS) {
-      const chunkPath = join(workDir, `chunk-${offset}.mp3`);
-      await sliceAudio(audioPath, chunkPath, offset, CHUNK_SECONDS);
-      cues.push(...(await transcribeFile(chunkPath, offset)));
-    }
-    return cues;
+    return results.flat();
   } finally {
     await rm(workDir, { recursive: true, force: true });
   }

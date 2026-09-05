@@ -1018,3 +1018,164 @@ textarea:focus {
   background: rgba(245, 181, 68, 0.08);
   border-bottom: 1px solid rgba(245, 181, 68, 0.24);
 }
+
+/* ============================================================
+   Preparing screen
+   ============================================================ */
+
+.preparing {
+  position: relative;
+  min-height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 24px;
+  overflow: hidden;
+}
+
+.preparing::before {
+  content: "";
+  position: absolute;
+  top: -300px;
+  left: 50%;
+  width: 820px;
+  height: 560px;
+  transform: translateX(-50%);
+  background: radial-gradient(
+    50% 50% at 50% 50%,
+    rgba(124, 108, 246, 0.18) 0%,
+    rgba(124, 108, 246, 0) 70%
+  );
+  pointer-events: none;
+}
+
+.preparing-card {
+  position: relative;
+  width: 100%;
+  max-width: 440px;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  padding: 26px;
+  background: linear-gradient(180deg, var(--surface-1), #0b0b10);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-3);
+}
+
+.preparing-title {
+  font-size: 19px;
+  letter-spacing: -0.02em;
+  margin-bottom: 5px;
+}
+
+.preparing-sub {
+  font-size: 13.5px;
+  color: var(--text-2);
+}
+
+.preparing-sub .mono {
+  color: var(--text-3);
+  font-size: 12px;
+}
+
+.steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+}
+
+.step {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  font-size: 13.5px;
+  color: var(--text-3);
+  transition: color 0.3s var(--ease);
+}
+
+.step-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--surface-3);
+  border: 1px solid var(--border-strong);
+  flex-shrink: 0;
+  transition: all 0.3s var(--ease);
+}
+
+.step.is-done {
+  color: var(--text-2);
+}
+
+.step.is-done .step-dot {
+  background: var(--positive);
+  border-color: var(--positive);
+}
+
+.step.is-active {
+  color: var(--text);
+  font-weight: 550;
+}
+
+.step.is-active .step-dot {
+  background: var(--accent);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 4px var(--accent-soft);
+  animation: pulse 1.6s var(--ease) infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { box-shadow: 0 0 0 3px var(--accent-soft); }
+  50% { box-shadow: 0 0 0 7px rgba(124, 108, 246, 0.05); }
+}
+
+.progress-track {
+  height: 3px;
+  border-radius: 999px;
+  background: var(--surface-3);
+  overflow: hidden;
+}
+
+/* Indeterminate: the server reports stages, not a percentage. */
+.progress-fill {
+  display: block;
+  width: 38%;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  animation: slide 1.7s var(--ease) infinite;
+}
+
+@keyframes slide {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(360%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .progress-fill,
+  .step.is-active .step-dot {
+    animation: none;
+  }
+}
+
+.failed-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 14px;
+  max-width: 460px;
+  padding: 24px;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+
+.failed-reason {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text-2);
+}

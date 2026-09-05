@@ -19,6 +19,10 @@ export interface Lecture {
   durationSec: number;
   notesText: string;
   chapters: Chapter[];
+  status: "processing" | "ready" | "failed";
+  /** What the server is doing right now, shown while status is processing. */
+  stage: string;
+  error: string | null;
   createdAt: string;
 }
 
@@ -62,7 +66,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 export function createLecture(
   input: CreateLectureInput,
-): Promise<Lecture & { segmentCount: number; warning: string | null }> {
+): Promise<Lecture & { warning: string | null }> {
   return request("/api/lectures", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
