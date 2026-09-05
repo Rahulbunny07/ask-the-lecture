@@ -2,6 +2,7 @@ import { Router } from "express";
 import { getStore } from "./store.js";
 import { fetchCaptions, fetchTitle, parseVideoId } from "./youtube.js";
 import { mergeCues, parseTranscriptText } from "./chunk.js";
+import { askStream, hasApiKey } from "./llm.js";
 import type { Segment } from "./types.js";
 
 export const lectures = Router();
@@ -82,4 +83,48 @@ lectures.get("/:id", async (req, res) => {
 
   const segments = await store.getSegments(id);
   res.json({ ...lecture, segments });
+});
+
+lectures.post("/:id/ask", async (req, res) => {
+  const question = String((req.body as { question?: unknown })?.question ?? "").trim();
+  if (!question) {
+    res.status(400).json({ error: "question is required" });
+    return;
+  }
+  if (!hasApiKey()) {
+    res.status(503).json({ error: "ANTHROPIC_API_KEY is not set on the server" });
+    return;
+  }
+
+  const store = getStore();
+  const lecture = await store.getLecture(req.params.id);
+  if (!lecture) {
+    res.status(404).json({ error: "Lecture not found" });
+    return;
+  }
+  const segments = await store.getSegments(req.params.id);
+
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache, no-transform");
+  res.setHeader("Connection", "keep-alive");
+  res.flushHeaders();
+
+  const send = (payload: unknown) =>
+    res.write(`data: ${JSON.stringify(payload)}
+
+`);
+
+  try {
+    for await (const text of askStream({ lecture, segments, question })) {
+      send({ type: "delta", text });
+    }
+    send({ type: "done" });
+  } catch (err) {
+    // Headers are already out, so the failure has to travel down the stream.
+    const message = err instanceof Error ? err.message : "The model call failed";
+    console.error("ask failed:", message);
+    send({ type: "error", message });
+  } finally {
+    res.end();
+  }
 });
