@@ -21,7 +21,8 @@ const mongoStore: LectureStore = {
     return {
       id: doc._id.toString(),
       title: doc.title,
-      videoId: doc.videoId,
+      videoId: doc.videoId ?? "",
+      mediaUrl: doc.mediaUrl ?? "",
       source: doc.source as Lecture["source"],
       durationSec: doc.durationSec ?? 0,
       notesText: doc.notesText ?? "",
@@ -40,7 +41,8 @@ const mongoStore: LectureStore = {
     return {
       id: doc._id.toString(),
       title: doc.title,
-      videoId: doc.videoId,
+      videoId: doc.videoId ?? "",
+      mediaUrl: doc.mediaUrl ?? "",
       source: doc.source as Lecture["source"],
       durationSec: doc.durationSec ?? 0,
       notesText: doc.notesText ?? "",

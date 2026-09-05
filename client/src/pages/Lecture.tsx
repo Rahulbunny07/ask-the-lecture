@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useLocation, useParams } from "react-router-dom";
 import Player, { type PlayerHandle } from "../components/Player";
 import TranscriptPane from "../components/TranscriptPane";
 import Timeline from "../components/Timeline";
@@ -9,6 +9,10 @@ import { formatTime } from "../format";
 
 export default function Lecture() {
   const { id } = useParams<{ id: string }>();
+  const location = useLocation();
+  const ingestWarning =
+    (location.state as { warning?: string | null } | null)?.warning ?? null;
+  const [warningShown, setWarningShown] = useState(true);
   const [lecture, setLecture] = useState<LectureDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [currentSec, setCurrentSec] = useState(0);
@@ -60,11 +64,21 @@ export default function Lecture() {
         <span className="chip">{formatTime(currentSec)}</span>
       </header>
 
+      {ingestWarning && warningShown && (
+        <div className="banner">
+          <span>{ingestWarning}</span>
+          <button className="btn-mini" onClick={() => setWarningShown(false)}>
+            Dismiss
+          </button>
+        </div>
+      )}
+
       <div className="workspace-body">
         <section className="stage">
           <Player
             ref={playerRef}
-            videoId={lecture.videoId}
+            videoId={lecture.videoId || undefined}
+            mediaUrl={lecture.mediaUrl || undefined}
             onTime={setCurrentSec}
           />
           <Timeline

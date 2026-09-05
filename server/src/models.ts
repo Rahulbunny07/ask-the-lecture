@@ -2,8 +2,9 @@ import { Schema, model } from "mongoose";
 
 const lectureSchema = new Schema({
   title: { type: String, required: true },
-  videoId: { type: String, required: true },
-  source: { type: String, enum: ["youtube", "paste"], default: "youtube" },
+  videoId: { type: String, default: "" },
+  mediaUrl: { type: String, default: "" },
+  source: { type: String, enum: ["youtube", "file"], default: "youtube" },
   durationSec: { type: Number, default: 0 },
   notesText: { type: String, default: "" },
   chapters: {

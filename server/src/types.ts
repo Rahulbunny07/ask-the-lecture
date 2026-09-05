@@ -13,8 +13,11 @@ export interface Chapter {
 export interface Lecture {
   id: string;
   title: string;
+  /** YouTube id, or "" when the source is a direct media file. */
   videoId: string;
-  source: "youtube" | "paste";
+  /** Direct media URL, or "" for YouTube. */
+  mediaUrl: string;
+  source: "youtube" | "file";
   durationSec: number;
   notesText: string;
   chapters: Chapter[];

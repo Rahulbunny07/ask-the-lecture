@@ -14,7 +14,8 @@ export interface Lecture {
   id: string;
   title: string;
   videoId: string;
-  source: "youtube" | "paste";
+  mediaUrl: string;
+  source: "youtube" | "file";
   durationSec: number;
   notesText: string;
   chapters: Chapter[];
@@ -61,7 +62,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 export function createLecture(
   input: CreateLectureInput,
-): Promise<Lecture & { segmentCount: number }> {
+): Promise<Lecture & { segmentCount: number; warning: string | null }> {
   return request("/api/lectures", {
     method: "POST",
     headers: { "Content-Type": "application/json" },

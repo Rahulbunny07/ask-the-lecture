@@ -23,7 +23,7 @@ export default function Setup() {
         notesText: notesText.trim() || undefined,
         transcript: transcript.trim() || undefined,
       });
-      navigate(`/l/${lecture.id}`);
+      navigate(`/l/${lecture.id}`, { state: { warning: lecture.warning } });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something broke");
       // Captions failed - reveal the paste-a-transcript escape hatch.

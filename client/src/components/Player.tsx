@@ -51,40 +51,58 @@ export interface PlayerHandle {
 }
 
 interface Props {
-  videoId: string;
+  /** Set for YouTube lectures. */
+  videoId?: string;
+  /** Set for lectures served as a direct media file. */
+  mediaUrl?: string;
   onTime?: (seconds: number) => void;
 }
 
+/**
+ * Two very different players behind one handle. Course platforms serve
+ * lectures straight off a CDN, where a plain media element seeks more
+ * precisely than the IFrame API does anyway.
+ */
 const Player = forwardRef<PlayerHandle, Props>(function Player(
-  { videoId, onTime },
+  { videoId, mediaUrl, onTime },
   ref,
 ) {
   const mountRef = useRef<HTMLDivElement>(null);
-  const playerRef = useRef<YTPlayer | null>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const ytRef = useRef<YTPlayer | null>(null);
   const onTimeRef = useRef(onTime);
   onTimeRef.current = onTime;
 
   useImperativeHandle(ref, () => ({
     seekTo(seconds: number) {
-      playerRef.current?.seekTo(seconds, true);
-      playerRef.current?.playVideo();
+      if (videoRef.current) {
+        videoRef.current.currentTime = seconds;
+        void videoRef.current.play().catch(() => {
+          /* autoplay can be blocked; the seek still landed */
+        });
+        return;
+      }
+      ytRef.current?.seekTo(seconds, true);
+      ytRef.current?.playVideo();
     },
   }));
 
   useEffect(() => {
+    if (!videoId) return;
+
     let cancelled = false;
     let ticker: ReturnType<typeof setInterval> | undefined;
 
-    loadPlayerApi().then(() => {
+    void loadPlayerApi().then(() => {
       if (cancelled || !mountRef.current || !window.YT) return;
 
-      playerRef.current = new window.YT.Player(mountRef.current, {
+      ytRef.current = new window.YT.Player(mountRef.current, {
         videoId,
         playerVars: { rel: 0, modestbranding: 1 },
       });
 
       ticker = setInterval(() => {
-        const seconds = playerRef.current?.getCurrentTime?.();
+        const seconds = ytRef.current?.getCurrentTime?.();
         if (typeof seconds === "number") onTimeRef.current?.(seconds);
       }, 500);
     });
@@ -92,10 +110,25 @@ const Player = forwardRef<PlayerHandle, Props>(function Player(
     return () => {
       cancelled = true;
       if (ticker) clearInterval(ticker);
-      playerRef.current?.destroy();
-      playerRef.current = null;
+      ytRef.current?.destroy();
+      ytRef.current = null;
     };
   }, [videoId]);
+
+  if (!videoId && mediaUrl) {
+    return (
+      <div className="player">
+        <video
+          ref={videoRef}
+          src={mediaUrl}
+          controls
+          playsInline
+          preload="metadata"
+          onTimeUpdate={(e) => onTimeRef.current?.(e.currentTarget.currentTime)}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="player">
