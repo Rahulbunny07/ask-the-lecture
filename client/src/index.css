@@ -63,3 +63,149 @@ h1 {
   font-size: 0.8125rem;
   color: #5c5c62;
 }
+
+/* ---------- setup ---------- */
+
+.setup {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 1rem;
+  max-width: 46rem;
+  margin: 0 auto;
+  padding: 3rem 1.5rem;
+}
+
+.setup-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+  margin-top: 1.25rem;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.field > span {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.field em {
+  font-style: normal;
+  font-weight: 400;
+  color: #6f6f76;
+  margin-left: 0.4rem;
+}
+
+input[type="text"],
+textarea {
+  width: 100%;
+  padding: 0.7rem 0.85rem;
+  border-radius: 8px;
+  border: 1px solid #2a2a2e;
+  background: #141416;
+  color: var(--fg);
+  font: inherit;
+  font-size: 0.95rem;
+  resize: vertical;
+}
+
+input[type="text"]:focus,
+textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: #55555c;
+}
+
+button {
+  align-self: flex-start;
+  padding: 0.7rem 1.4rem;
+  border: none;
+  border-radius: 8px;
+  background: var(--accent);
+  color: #fff;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+button:disabled {
+  background: #34343a;
+  color: #78787f;
+  cursor: not-allowed;
+}
+
+.error {
+  margin: 0;
+  padding: 0.7rem 0.85rem;
+  border-radius: 8px;
+  border: 1px solid #4a1620;
+  background: #1d0f13;
+  color: #ff8b9a;
+  font-size: 0.9rem;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.centered {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+}
+
+/* ---------- workspace ---------- */
+
+.workspace {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.topbar {
+  display: flex;
+  align-items: baseline;
+  gap: 1rem;
+  padding: 0.9rem 1.25rem;
+  border-bottom: 1px solid #1e1e22;
+}
+
+.topbar h1 {
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mark {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.7rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--accent);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.topbar .muted {
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
