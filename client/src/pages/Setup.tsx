@@ -108,7 +108,7 @@ export default function Setup() {
               {busy ? "Reading the lecture…" : "Open lecture"}
             </button>
             <span className="hint">
-              Takes a few seconds. One lecture at a time.
+              Around twenty seconds: we read the captions and map the chapters.
             </span>
           </div>
         </form>
