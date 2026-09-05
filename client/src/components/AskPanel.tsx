@@ -8,6 +8,16 @@ interface Message {
   text: string;
 }
 
+/**
+ * The system prompt pins the exact opening sentence for an uncovered
+ * question, which lets the answer be labelled rather than read closely.
+ */
+const NOT_COVERED = "This lecture doesn't cover that";
+
+function isNotCovered(text: string): boolean {
+  return text.trimStart().startsWith(NOT_COVERED);
+}
+
 interface Props {
   lectureId: string;
   currentSec: number;
@@ -109,7 +119,12 @@ export default function AskPanel({ lectureId, currentSec, onSeek }: Props) {
               <div key={i} className={`msg msg-${message.role}`}>
                 {message.role === "assistant" ? (
                   message.text ? (
-                    <AnswerText text={message.text} onSeek={onSeek} />
+                    <>
+                      {isNotCovered(message.text) && (
+                        <span className="badge-warn">Not in this lecture</span>
+                      )}
+                      <AnswerText text={message.text} onSeek={onSeek} />
+                    </>
                   ) : (
                     <span className="thinking">Reading the lecture…</span>
                   )

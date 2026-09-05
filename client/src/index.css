@@ -770,3 +770,28 @@ textarea:focus {
 .cite:active {
   transform: scale(0.96);
 }
+
+/* Marks an answer the lecture genuinely does not cover. Shown, not buried,
+   because knowing where the syllabus ends is the point. */
+.badge-warn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 9px;
+  padding: 3px 9px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--warning);
+  background: rgba(245, 181, 68, 0.1);
+  border: 1px solid rgba(245, 181, 68, 0.28);
+  border-radius: 999px;
+}
+
+.badge-warn::before {
+  content: "";
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--warning);
+}
